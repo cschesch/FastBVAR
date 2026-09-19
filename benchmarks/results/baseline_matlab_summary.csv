@@ -1,0 +1,4 @@
+case,engine,engine_version,commit,N,T,p,K,state_dimension,design_regressors,wall_seconds,seconds_per_draw,output_bytes,peak_memory_bytes
+small_irregular,MATLAB,26.1.0.3346908 (R2026a) Update 5,3975e6597cb23d82e4ebad162af29b2a1105b395,5,180,6,2,30,31,0.444370167,0.222185083,334438,NaN
+small_mixed_frequency,MATLAB,26.1.0.3346908 (R2026a) Update 5,3975e6597cb23d82e4ebad162af29b2a1105b395,6,150,6,2,36,37,0.242264542,0.121132271,344468,NaN
+small_high_lag,MATLAB,26.1.0.3346908 (R2026a) Update 5,3975e6597cb23d82e4ebad162af29b2a1105b395,4,300,16,1,64,65,0.2706085,0.2706085,544590,NaN

@@ -14,6 +14,11 @@ specs = {struct('name', 'small_irregular', 'K', 2), ...
          struct('name', 'small_mixed_frequency', 'K', 2), ...
          struct('name', 'small_high_lag', 'K', 1)};
 rows = repmat(empty_row(), numel(specs), 1);
+if exist('OCTAVE_VERSION', 'builtin')
+    engine_tag = 'octave';
+else
+    engine_tag = 'matlab';
+end
 
 for i = 1:numel(specs)
     problem = generate_benchmark_problem(specs{i}.name);
@@ -29,13 +34,14 @@ for i = 1:numel(specs)
 
     rows(i) = make_row(problem, specs{i}.K, elapsed, output);
     write_profile_csv(fullfile(results_dir, ...
-        [specs{i}.name '_profile.csv']), info);
+        [specs{i}.name '_' engine_tag '_profile.csv']), info);
     fprintf('%-24s %.3fs (%d draws, state %d)\n', specs{i}.name, ...
         elapsed, specs{i}.K, problem.state_dimension);
 end
 
-save(fullfile(results_dir, 'baseline_octave.mat'), 'rows');
-write_summary_csv(fullfile(results_dir, 'baseline_summary.csv'), rows);
+save(fullfile(results_dir, ['baseline_' engine_tag '.mat']), 'rows');
+write_summary_csv(fullfile(results_dir, ...
+    ['baseline_' engine_tag '_summary.csv']), rows);
 end
 
 function row = empty_row()
@@ -97,4 +103,3 @@ for i = 1:numel(table_data)
     fprintf(fid, '%s,%.9g,%d\n', name, item.TotalTime, item.NumCalls);
 end
 end
-
