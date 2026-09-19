@@ -1,0 +1,3 @@
+[submodule "reference/BVAR_"]
+	path = reference/BVAR_
+	url = https://github.com/naffe15/BVAR_.git

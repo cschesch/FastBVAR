@@ -1,16 +1,55 @@
-# BVAR_
- 
-Empirical macro toolbox
+# FastBVAR
 
-by F. Ferroni and F. Canova
+FastBVAR is a performance-oriented derivative of Ferroni and Canova's
+[BVAR toolbox](https://github.com/naffe15/BVAR_). Its governing rule is to
+preserve the estimator, priors, missing-data treatment, posterior algorithm,
+identification, API, outputs, option semantics, and random-number behavior.
+An optimization is accepted only after comparison with a frozen upstream
+reference.
 
-This repository contains MATLAB functions, routines and documentation to estimate VARs, factor models and local projections with classical or Bayesian methods. The toolbox allows a researcher to conduct inference under various prior assumptions on the parameters, to produce point and density forecasts, to compute spillovers/connectedness across units of a network and to trace out the causal effect of shocks using a number of identification schemes. The toolbox is equipped to handle missing observations, mixed frequencies and time series with large cross-section information (e.g. panels of VAR, factor models and FAVAR). It also contains a number of routines to extract cyclical information and to date business cycles. We describe the methodology employed and implementation of the functions with a number of practical examples.
+FastBVAR is currently at the **Phase-1 baseline milestone**: the upstream
+implementation is unchanged, the reference commit is pinned, deterministic
+benchmarks and strict equivalence tests are present, and baseline profiling is
+reproducible. No speedup is claimed yet.
 
-The matlab 2020 release has a built in function called 'bvar' which causes a crash with previous versions of the toolbox. In current version, we create the function 'bvar_.m' and substitute 'bvar.m' with 'bvar_.m' in all the examples of the tutorial. Codes are backwarad compatible so that for matlab releases earlier than 2020 'bvar.m' still works. 
+## Install
 
-With Matlab 2022b version, the toolbox crashes when it saves figures in 'eps' or 'pdf'. Until the problem is resolved, the tooolbox does not save figures in 'pdf' or 'eps' if uses the Matlab 2022b version.
+```bash
+git clone --recurse-submodules https://github.com/OWNER/FastBVAR.git
+```
 
-Link to the youtube tutorial: https://www.youtube.com/channel/UCDepPX4wbdkIqfg438J0h_g 
+In MATLAB, add the package folders:
 
-Matlab toolbox requirements BVAR tutorial: statistics_toolbox; optimization_toolbox; <br />
-Matlab toolbox requirements Trend-Cycle-Dating tutorial tutorial: statistics_toolbox; optimization_toolbox; signal_toolbox; <br />
+```matlab
+addpath('FastBVAR')
+addpath('FastBVAR/bvartools')
+addpath('FastBVAR/cmintools')
+```
+
+Existing scripts can continue to call:
+
+```matlab
+BVAR = bvar_(y, lags, options);
+```
+
+The explicit alias is:
+
+```matlab
+BVAR = fastbvar_(y, lags, options);
+```
+
+## Verify and benchmark
+
+```matlab
+addpath('tests', 'benchmarks')
+run_equivalence_tests
+run_baseline_benchmarks
+```
+
+See [COMPATIBILITY.md](COMPATIBILITY.md) for validated feature coverage and
+[PERFORMANCE.md](PERFORMANCE.md) for profiling notes. Programmatic status is
+returned by `fastbvar_capabilities`.
+
+The frozen reference and exact commit are documented in
+[UPSTREAM.md](UPSTREAM.md). This derivative remains licensed under GPL-3.0;
+the original license and attribution are retained.
