@@ -227,7 +227,6 @@ rstar       = zeros(ns,1);
     Ztt', finvt(dimt,dimt,end),zeros(ns),vt(dimt,end));
 smooth_st(:,end)        = stt(:,end)+ptt(:,:,end)*rstar;
 rmat(:,end)             = rstar;
-Nmat = zeros(ns,ns,T);
 %==========================================================================
 % 4.2 Begin Backward recursion
 for ii=(T-1):-1:1
@@ -336,7 +335,11 @@ else
 end
 for tt =1 : T
     Qt = (Sigma(:,:,tauVec(tt))')*Sigma(:,:,tauVec(tt));
-    Ct = Qt - Qt*B(:,:,tauVec(tt))'*Nmat(:,:,tt)*B(:,:,tauVec(tt))*Qt;
+    % Upstream allocated Nmat=zeros(ns,ns,T) and never updated it. Therefore
+    % the subtracted product was identically zero for every date. Avoiding
+    % that dead state-covariance-sized history is algebraically exact and is
+    % especially important when ns=N*p is large.
+    Ct = Qt;
     [a,b,~] = svd(Ct);
     iS      = a* sqrt(b);
     if state_space_model ==2
@@ -432,4 +435,3 @@ end
 
 %% End of File
 end
-

@@ -55,3 +55,16 @@ the high-lag case it accounts for 0.162 of 0.200 seconds attributed to
 `bvar_`, with 0.096 seconds in 300 `kf_dk` calls; three `rfvar3` calls account
 for only 0.009 seconds. MATLAB does not report the built-in `svd` self-time as
 a separate row here, but the call topology is visible in the Octave profile.
+
+## Optimization 1: remove dead `Nmat` history
+
+Upstream allocated `Nmat=zeros(ns,ns,T)`, never changed it, and used it only
+inside a product that was identically zero. FastBVAR removes the allocation
+and assigns the algebraically identical `Ct=Qt`. All small MATLAB equivalence
+tests remain bitwise exact.
+
+This removes exactly `8*ns^2*T` bytes from each active Kalman call: 9.8 MB for
+the small high-lag case and approximately 1.65 GB for the target
+`N=7, p=52, T=1560` case. Seven alternating MATLAB timing repetitions showed
+0.97x in both small cases, which is within run-to-run noise; no runtime speedup
+is claimed for this change. Results are in `dead_nmat_matlab.csv`.
