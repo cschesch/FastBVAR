@@ -32,17 +32,14 @@ function [BVAR] = bvar_(y,lags,options)
 if nargin < 2
     error('the bvar_ funtion needs at least two inputs: data and number of lags');
 end
-if lags < 1
-    error('lags cannot be zero or negative');
+if nargin < 3
+    options = struct();
 end
+verify_mode = validate_fastbvar_inputs(y,lags,options);
 %********************************************************
 %* DEFAULT SETTINGS AND OPTIONS PARSING
 %********************************************************
-if nargin > 2
-    opt = parse_bvar_options(y, lags, options);
-else
-    opt = parse_bvar_options(y, lags);
-end
+opt = parse_bvar_options(y, lags, options);
 
 % --- always set ---
 ny                       = opt.ny;
@@ -638,13 +635,10 @@ if mixed_freq_on == 1
     KFoptions.index   = index;
     KFoptions.noprint = noprint;
     % The estimator uses conditional means from kfilternan, not its optional
-    % simulation-smoother output. kfilternan still advances the RNG exactly
-    % as upstream when this output is disabled.
+    % simulation-smoother output. Fast mode skips its otherwise useless RNG
+    % draws; verification mode restores upstream stream positioning.
     KFoptions.return_simulation = 0;
-    KFoptions.preserve_rng = 1;
-    if nargin > 2 && isfield(options,'preserve_rng')
-        KFoptions.preserve_rng = options.preserve_rng;
-    end
+    KFoptions.preserve_rng = verify_mode;
 end
 
 

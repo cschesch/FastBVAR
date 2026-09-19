@@ -1,4 +1,0 @@
-case,engine,engine_version,commit,N,T,p,K,state_dimension,design_regressors,wall_seconds,seconds_per_draw,output_bytes,peak_memory_bytes
-small_irregular,GNU Octave,9.4.0,3975e6597cb23d82e4ebad162af29b2a1105b395,5,180,6,2,30,31,0.481882095,0.240941048,324611,NaN
-small_mixed_frequency,GNU Octave,9.4.0,3975e6597cb23d82e4ebad162af29b2a1105b395,6,150,6,2,36,37,0.461313009,0.230656505,334239,NaN
-small_high_lag,GNU Octave,9.4.0,3975e6597cb23d82e4ebad162af29b2a1105b395,4,300,16,1,64,65,0.697437048,0.697437048,534895,NaN

@@ -37,7 +37,7 @@ state_space_model = 1; % default VAR state space model
 only_logL       = 0;
 start           = 1;
 return_simulation = 1;
-preserve_rng      = 1;
+preserve_rng      = 0;
 
 if nargin > 3
     if isfield(options,'tauVec') == 1
@@ -112,10 +112,11 @@ finvt   = zeros(var,var,T);
 kpartg  = zeros(ns,var,T);
 logLnc  = zeros(T,1);
 yfor    = zeros(size(C,1),T);
-% Matrices with one additional entrdataStru.data (initialization)
-% to recover observables
-stt        = zeros(ns,T+1);
-ptt        = zeros(ns,ns,T+1);
+% Store filtered states directly at their final time index. Upstream used an
+% extra initial slice and then copied the full covariance history to remove
+% it; that copy is enormous for high-lag companion states.
+stt        = zeros(ns,T);
+ptt        = zeros(ns,ns,T);
 W          = eye(var);
 Zdim       = zeros(T,1);
 mat_obspos = zeros(T,var);
@@ -129,24 +130,22 @@ else
     companion_n = [];
 end
 if initialCond==0
-    stt(:,1) = zeros(ns,1);
+    initial_state = zeros(ns,1);
     P0 = lyapunov_fast(A(:,:,tauVec(1)),...
         B(:,:,tauVec(1))*(Sigma(:,:,tauVec(1))')...
         *Sigma(:,:,tauVec(1))*(B(:,:,tauVec(1))'));
-    ptt(:,:,1)=P0;
 elseif initialCond==1 %non stationary data
     P0         = 10*eye(size(A,1));
-    stt(:,1)   = zeros(size(A,1),1);
-    ptt(:,:,1) = P0;
+    initial_state = zeros(size(A,1),1);
 elseif initialCond==2
     P0         = pZero;
-    stt(:,1)   = aZero;
-    ptt(:,:,1) = P0;
+    initial_state = aZero;
 end
 
 nbreak = 0;
 time   = 0;
-state  = stt(:,1);
+state = initial_state;
+state_covariance = P0;
 
 %==========================================================================
 % 1.3 Start Forward Filter using KF_DK
@@ -183,9 +182,9 @@ for ii=1:T
     %     yfrsct(ii,dimt,3) = Ztt*(G(:,:,tauVec(ii))^3*stt(:,ii) + C(:,tauVec(ii)));
     %     yfrsct(ii,dimt,4) = Ztt*(G(:,:,tauVec(ii))^4*stt(:,ii) + C(:,tauVec(ii)));
     
-    [stt(:,ii+1),ptt(:,:,ii+1),logLnc(ii),vt(dimt,ii),finvt(dimt,dimt,ii),...
+    [stt(:,ii),ptt(:,:,ii),logLnc(ii),vt(dimt,ii),finvt(dimt,dimt,ii),...
         kpartg(:,dimt,ii),] = kf_dk(ytt,Ztt,...
-        state,ptt(:,:,ii),At,...
+        state,state_covariance,At,...
         B(:,:,tauVec(ii))*(Sigma(:,:,tauVec(ii))'),companion_n,...
         state_prediction);
 
@@ -195,10 +194,11 @@ for ii=1:T
         if tauVec(ii+1) - tauVec(ii) > 0
             nbreak              = nbreak +1;
             time(nbreak)        = ii+1;
-            state = stt(:,ii+1) + adjustment(:,nbreak);
+            state = stt(:,ii) + adjustment(:,nbreak);
         else
-            state = stt(:,ii+1);
+            state = stt(:,ii);
         end
+        state_covariance = ptt(:,:,ii);
     end
     
 end
@@ -218,9 +218,6 @@ end
 % outSt.yferr=vt';
 outputkf.yferr = (data- yfor)';
 yfor        = yfor';
-stt         = stt(:,2:end);
-ptt         = ptt(:,:,2:end);
-
 % % add the 1,2,3,4 ste ahead forecasts in the output
 % for hf = 1
 %     tmp  = (dataStru.data(:,1+hf:end) - yfrsct(1:end-hf,:,hf) ) *  ...

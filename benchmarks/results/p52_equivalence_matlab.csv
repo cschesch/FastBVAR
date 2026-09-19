@@ -1,2 +1,0 @@
-case,N,T,p,K,reference_seconds,fast_seconds,speedup,worst_absolute_difference,worst_path,passed
-gold_p52,7,1560,52,1,28.773191083,1.386734083,20.748889,9.27036225562e-15,root(1).yfill,true

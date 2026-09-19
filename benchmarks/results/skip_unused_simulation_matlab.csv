@@ -1,4 +1,0 @@
-case,N,T,p,K,reference_median_seconds,fast_median_seconds,speedup,svds_removed_per_draw
-small_irregular,5,180,6,10,0.510877167,0.435027125,1.17435704,180
-small_mixed_frequency,6,150,6,10,0.47425825,0.40763625,1.16343493,150
-small_high_lag,4,300,16,5,0.713682417,0.679079417,1.05095575,300

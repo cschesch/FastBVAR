@@ -1,64 +1,34 @@
 # FastBVAR
 
-FastBVAR is a performance-oriented derivative of Ferroni and Canova's
-[BVAR toolbox](https://github.com/naffe15/BVAR_). Its governing rule is to
-preserve the estimator, priors, missing-data treatment, posterior algorithm,
-identification, API, outputs, option semantics, and random-number behavior.
-An optimization is accepted only after comparison with a frozen upstream
-reference.
-
-FastBVAR has a pinned upstream reference, deterministic benchmarks, strict
-equivalence tests, and validated missing-data Kalman fast paths with robust
-legacy fallbacks. On the checked-in MATLAB R2026a synthetic `K=1` benchmarks,
-speedups reach 29.1x on the repeated Gold p=52 benchmark; see
-`PERFORMANCE.md` for scope and caveats.
-
-## Install
+A narrow, faster implementation of the default Ferroni–Canova BVAR, with a
+pinned upstream checkout as its reference. The `N=7, T=1560, p=52` synthetic
+case runs roughly 25–30× faster in MATLAB R2026a while matching reference outputs
+within `1e-6` absolute/relative tolerance.
 
 ```bash
 git clone --recurse-submodules https://github.com/cschesch/FastBVAR.git
 ```
 
-In MATLAB, add the package folders:
-
 ```matlab
-addpath('FastBVAR')
-addpath('FastBVAR/bvartools')
-addpath('FastBVAR/cmintools')
+addpath('FastBVAR','FastBVAR/bvartools')
+options = struct('K',1000,'noprint',true);
+BVAR = fastbvar_(y,lags,options);
 ```
 
-Existing scripts can continue to call:
+Supported options are only `K`, `hor`, `fhor`, `noprint`, `mf_varindex`, and
+`verify_mode`; every other option is rejected as unverified. Complete data,
+irregular missing stock variables, mixed-frequency flow variables, and the
+large companion-state path are covered by `verify_exactness`.
+
+Fast mode skips RNG draws that upstream generates for an unused simulation
+output. Set `options.verify_mode=true` to restore upstream stream positioning
+for exactness checks.
 
 ```matlab
-BVAR = bvar_(y, lags, options);
+verify_exactness     % frozen-reference comparison of every supported mode
+compare_timing       % p=13 and p=52 reference-versus-fast timing
 ```
 
-The explicit alias is:
-
-```matlab
-BVAR = fastbvar_(y, lags, options);
-```
-
-## Verify and benchmark
-
-```matlab
-addpath('tests', 'benchmarks')
-run_equivalence_tests
-run_baseline_benchmarks
-```
-
-The equivalence suite uses the documented `1e-6` absolute/relative tolerance
-for the operation-reordered Kalman fast path and bitwise comparison for its
-legacy singular-update fallback.
-
-Exact upstream RNG positioning remains the default. Users who do not need
-same-seed draw identity can set `options.preserve_rng = false` to skip draws
-associated only with an unused simulation-smoother output.
-
-See [COMPATIBILITY.md](COMPATIBILITY.md) for validated feature coverage and
-[PERFORMANCE.md](PERFORMANCE.md) for profiling notes. Programmatic status is
-returned by `fastbvar_capabilities`.
-
-The frozen reference and exact commit are documented in
-[UPSTREAM.md](UPSTREAM.md). This derivative remains licensed under GPL-3.0;
-the original license and attribution are retained.
+The reference is upstream commit
+`3975e6597cb23d82e4ebad162af29b2a1105b395`. GPL-3.0 licensing and attribution
+are retained.

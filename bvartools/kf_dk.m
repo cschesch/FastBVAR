@@ -22,7 +22,8 @@ function   [shatnew,signew,lh,yhat,fin,kgpart,yforc]=kf_dk(y,H,shat,sig,G,M,comp
 % Revised, 3/21/2018
 
 lh=zeros(1,2);
-if nargin >= 7 && ~isempty(companion_n)
+structured_companion = nargin >= 7 && ~isempty(companion_n);
+if structured_companion
     % Exact block propagation for a pure VAR companion matrix:
     % G=[A; I 0], M=[M1; 0]. This avoids a dense ns-by-ns product and
     % reduces propagation from O(ns^3) to O(N*ns^2).
@@ -30,9 +31,10 @@ if nargin >= 7 && ~isempty(companion_n)
     nshift = ns-companion_n;
     AP = G(1:companion_n,:)*sig;
     omega = zeros(ns,ns);
-    omega(1:companion_n,1:companion_n) = ...
-        AP*G(1:companion_n,:)' + ...
+    top_covariance = AP*G(1:companion_n,:)' + ...
         M(1:companion_n,:)*M(1:companion_n,:)';
+    omega(1:companion_n,1:companion_n) = ...
+        (top_covariance+top_covariance')/2;
     if nshift > 0
         omega(1:companion_n,companion_n+1:end) = AP(:,1:nshift);
         omega(companion_n+1:end,1:companion_n) = AP(:,1:nshift)';
@@ -50,7 +52,7 @@ if nargin < 8 || isempty(spred)
         spred = G*shat;
     end
 end
-yforc = H*spred; 
+yforc = H*spred;
 yhat=y-yforc; 
 
 % Fast full-rank path. The innovation covariance is at most the number of
@@ -70,7 +72,9 @@ if chol_status == 0 && rcond(R) > 1e-10
     lh(2) = -sum(log(diag(R)));
     shatnew = spred + kgain*yhat;
     signew = omega - innovation_factor*innovation_factor';
-    signew = (signew+signew')/2;
+    if ~structured_companion
+        signew = (signew+signew')/2;
+    end
     kgpart = kgain;
 else
     [uo,doo,vo]=svd(omega);
