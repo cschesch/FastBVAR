@@ -105,3 +105,19 @@ and relative tolerance over the recursive result structure. The worst observed
 absolute discrepancy was `8.95e-9` in a mixed-frequency posterior coefficient
 mean (allowed by the relative term); filtered observations differed by at most
 `6.33e-15`. Raw timings are in `innovation_cholesky_matlab.csv`.
+
+## Large synthetic benchmarks
+
+Observed MATLAB R2026a timings at `K=1`:
+
+| Case | Reference | FastBVAR | Speedup |
+| --- | ---: | ---: | ---: |
+| Gold p=13 | 1.572 s | 0.586 s | 2.68x |
+| Gold p=52 | 33.758 s | 5.637 s | 5.99x |
+| Fiscal-monetary | 0.761 s | 0.162 s | 4.68x |
+
+These are measured one-draw runs, not extrapolated full-chain claims. Runtime
+still scales approximately with `K` on the missing-data Gibbs path; realistic
+multi-draw scaling and remaining full covariance-history storage require the
+next profiling pass. Reproduce with `run_large_benchmarks(1)`; raw results are
+in `large_matlab.csv`.

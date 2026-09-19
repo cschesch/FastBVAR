@@ -19,7 +19,7 @@ end
 
 function output = invoke(package_root, y, H, shat, sig, G, M)
 old_path = path;
-cleanup = onCleanup(@() path(old_path)); %#ok<NASGU>
+cleanup = onCleanup(@() path(old_path));
 clear('kf_dk');
 addpath(fullfile(package_root, 'bvartools'), '-begin');
 output = cell(1, 7);

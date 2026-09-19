@@ -8,9 +8,10 @@ An optimization is accepted only after comparison with a frozen upstream
 reference.
 
 FastBVAR is currently at the **Phase-1 baseline milestone**: the upstream
-implementation is unchanged, the reference commit is pinned, deterministic
-benchmarks and strict equivalence tests are present, and baseline profiling is
-reproducible. No speedup is claimed yet.
+reference is pinned, deterministic benchmarks and strict equivalence tests are
+present, and the missing-data Kalman path has validated fast paths with robust
+legacy fallbacks. On the checked-in MATLAB R2026a synthetic `K=1` benchmarks,
+speedups range from 2.68x to 5.99x; see `PERFORMANCE.md` for scope and caveats.
 
 ## Install
 

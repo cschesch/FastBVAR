@@ -40,7 +40,7 @@ if chol_status == 0 && rcond(R) > 1e-10
     kgain = innovation_factor/R';
     fin = R \ (R' \ eye(size(F)));
     ferr = R' \ yhat;
-    lh(1) = -.5*(ferr'*ferr);
+    lh(1) = -.5*((ferr')*ferr);
     lh(2) = -sum(log(diag(R)));
     shatnew = spred + kgain*yhat;
     signew = omega - innovation_factor*innovation_factor';
