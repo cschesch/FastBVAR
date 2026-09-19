@@ -15,7 +15,7 @@ reproducible. No speedup is claimed yet.
 ## Install
 
 ```bash
-git clone --recurse-submodules https://github.com/OWNER/FastBVAR.git
+git clone --recurse-submodules https://github.com/cschesch/FastBVAR.git
 ```
 
 In MATLAB, add the package folders:
