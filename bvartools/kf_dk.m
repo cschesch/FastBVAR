@@ -1,4 +1,4 @@
-function   [shatnew,signew,lh,yhat,fin,kgpart,yforc]=kf_dk(y,H,shat,sig,G,M,companion_n)
+function   [shatnew,signew,lh,yhat,fin,kgpart,yforc]=kf_dk(y,H,shat,sig,G,M,companion_n,spred)
 
 % =========================================================================
 % KF_DK  
@@ -42,7 +42,14 @@ if nargin >= 7 && ~isempty(companion_n)
 else
     omega=G*sig*G'+M*M';
 end
-spred = G*shat; 
+if nargin < 8 || isempty(spred)
+    if nargin >= 7 && ~isempty(companion_n)
+        spred = [G(1:companion_n,:)*shat; ...
+                 shat(1:end-companion_n)];
+    else
+        spred = G*shat;
+    end
+end
 yforc = H*spred; 
 yhat=y-yforc; 
 

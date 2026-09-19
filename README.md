@@ -7,11 +7,10 @@ identification, API, outputs, option semantics, and random-number behavior.
 An optimization is accepted only after comparison with a frozen upstream
 reference.
 
-FastBVAR is currently at the **Phase-1 baseline milestone**: the upstream
-reference is pinned, deterministic benchmarks and strict equivalence tests are
-present, and the missing-data Kalman path has validated fast paths with robust
+FastBVAR has a pinned upstream reference, deterministic benchmarks, strict
+equivalence tests, and validated missing-data Kalman fast paths with robust
 legacy fallbacks. On the checked-in MATLAB R2026a synthetic `K=1` benchmarks,
-speedups reach 23.8x on the repeated Gold p=52 benchmark; see
+speedups reach 29.1x on the repeated Gold p=52 benchmark; see
 `PERFORMANCE.md` for scope and caveats.
 
 ## Install

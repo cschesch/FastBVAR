@@ -112,7 +112,6 @@ finvt   = zeros(var,var,T);
 kpartg  = zeros(ns,var,T);
 logLnc  = zeros(T,1);
 yfor    = zeros(size(C,1),T);
-sfor    = zeros(size(A,1),T);
 % Matrices with one additional entrdataStru.data (initialization)
 % to recover observables
 stt        = zeros(ns,T+1);
@@ -167,10 +166,16 @@ for ii=1:T
     % Demeaning is done here
     ytt = ytt - Ztt*const(:,tauVec(ii));
     
-    % Forecast Part
-    % sfor is the state at time t conditional on info at time t-1, s(t|t-1)
-    sfor(:,ii)      = A(:,:,tauVec(ii))*state;
-    yfor(:,ii)      = C(:,:,tauVec(ii))*(A(:,:,tauVec(ii))*state + const(:,tauVec(ii)));
+    % Forecast Part. Compute s(t|t-1) once and share it with KF_DK. For a
+    % pure companion state, lower rows are lag shifts and need no multiply.
+    At = A(:,:,tauVec(ii));
+    if ~isempty(companion_n)
+        state_prediction = [At(1:companion_n,:)*state; ...
+                            state(1:end-companion_n)];
+    else
+        state_prediction = At*state;
+    end
+    yfor(:,ii) = C(:,:,tauVec(ii))*(state_prediction + const(:,tauVec(ii)));
     
     %     % computing the 1, 2,3,4 step ahead forecast
     %     yfrsct(ii,dimt,1) = yfor(dimt,ii);
@@ -180,8 +185,9 @@ for ii=1:T
     
     [stt(:,ii+1),ptt(:,:,ii+1),logLnc(ii),vt(dimt,ii),finvt(dimt,dimt,ii),...
         kpartg(:,dimt,ii),] = kf_dk(ytt,Ztt,...
-        state,ptt(:,:,ii),A(:,:,tauVec(ii)),...
-        B(:,:,tauVec(ii))*(Sigma(:,:,tauVec(ii))'),companion_n);
+        state,ptt(:,:,ii),At,...
+        B(:,:,tauVec(ii))*(Sigma(:,:,tauVec(ii))'),companion_n,...
+        state_prediction);
 
     
     % if there is break
@@ -231,7 +237,9 @@ else
     etamat      = zeros(var,T);
 end
 smooth_st   = zeros(ns,T);
-rmat        = zeros(ns,T);
+if return_simulation
+    rmat = zeros(ns,T);
+end
 
 %==========================================================================
 % 4.1 Initialize RSTAR & start at t=Nobs
@@ -241,7 +249,9 @@ rstar       = zeros(ns,1);
     (Sigma(:,:,tauVec(end))')*Sigma(:,:,tauVec(end)),B(:,:,tauVec(end))',...
     Ztt', finvt(dimt,dimt,end),zeros(ns),vt(dimt,end));
 smooth_st(:,end)        = stt(:,end)+ptt(:,:,end)*rstar;
-rmat(:,end)             = rstar;
+if return_simulation
+    rmat(:,end) = rstar;
+end
 %==========================================================================
 % 4.2 Begin Backward recursion
 for ii=(T-1):-1:1
@@ -251,15 +261,32 @@ for ii=(T-1):-1:1
     % [Ztt]'= [Wtt*Z]' = = Z'*Wtt'
     Ztt = (C(:,:,tauVec(ii))')*( W( mat_obspos(ii,1:Zdim(ii)),:)');
     
-    [rstar,etamat(:,ii)]=smoothdis(rstar,...
-        (Sigma(:,:,tauVec(ii))')*Sigma(:,:,tauVec(ii)),...
-        B(:,:,tauVec(ii))',Ztt,finvt(dimt,dimt,ii),...
-        ((A(:,:,tauVec(ii+1))-A(:,:,tauVec(ii+1))*...
-        kpartg(:,dimt,ii)*Ztt')'),vt(dimt,ii));
+    % Algebraically apply L'*r without materializing the dense
+    % L=A-A*K*Z' matrix. For companion states, A'*r itself is only a top
+    % block multiply plus a lag shift.
+    Atnext = A(:,:,tauVec(ii+1));
+    if ~isempty(companion_n)
+        state_adjoint = Atnext(1:companion_n,:)' ...
+            * rstar(1:companion_n);
+        nshift = ns-companion_n;
+        if nshift > 0
+            state_adjoint(1:nshift) = state_adjoint(1:nshift) ...
+                + rstar(companion_n+1:end);
+        end
+    else
+        state_adjoint = Atnext'*rstar;
+    end
+    smoother_score = finvt(dimt,dimt,ii)*vt(dimt,ii) ...
+        - kpartg(:,dimt,ii)'*state_adjoint;
+    rstar = state_adjoint + Ztt*smoother_score;
+    shock_covariance = (Sigma(:,:,tauVec(ii))')*Sigma(:,:,tauVec(ii));
+    etamat(:,ii) = shock_covariance*B(:,:,tauVec(ii))'*rstar;
     
     smooth_st(:,ii)=stt(:,ii)+ptt(:,:,ii)*rstar;
     
-    rmat(:,ii)=rstar;
+    if return_simulation
+        rmat(:,ii) = rstar;
+    end
     
 end
 %==========================================================================

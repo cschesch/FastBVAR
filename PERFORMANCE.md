@@ -95,8 +95,8 @@ state. Cholesky is used only when successful and well conditioned. Singular or
 near-singular updates automatically execute the unchanged upstream SVD code;
 a deliberately rank-deficient test verifies that fallback bit-for-bit.
 
-Five alternating MATLAB runs produced cumulative speedups of 1.64x for small
-irregular missing data, 2.01x for small mixed frequency, and 2.36x for the
+Five alternating MATLAB runs produced cumulative speedups of 1.77x for small
+irregular missing data, 1.84x for small mixed frequency, and 2.72x for the
 small high-lag case. The operation reordering is validated under the current
 `1e-6` absolute and relative contract over the recursive result structure. The worst observed
 absolute discrepancy was `8.95e-9` in a mixed-frequency posterior coefficient
@@ -119,9 +119,23 @@ convergence and the Lyapunov residual before accepting the result. Failure
 falls back to the unchanged Schur solver. Automated tests cover the fast solve
 at `1e-10` and a bitwise nonconvergent fallback.
 
-Together with structured propagation, the p=52 three-run FastBVAR median is
-1.621 seconds per draw versus 38.519 seconds for the frozen reference, a
-23.76x speedup. Individual runs are recorded in `p52_repeated_matlab.csv`.
+## Optimization 6: matrix-free smoother and shared prediction
+
+The forward filter now computes each predicted state once and shares it with
+the forecast and update code. Companion-state lag rows are copied rather than
+densely multiplied. In the backward pass, FastBVAR applies
+`L'*r = A'*r - Z*K'*A'*r` directly instead of constructing the full dense
+`L=A-A*K*Z'` at every date. Simulation-only smoother history is no longer
+stored when `bvar_` has disabled that output.
+
+With these changes, the p=52 five-run FastBVAR median is 1.325 seconds per
+draw versus 38.519 seconds for the frozen reference, a 29.08x speedup.
+Individual runs are recorded in `p52_repeated_matlab.csv`.
+
+A separate end-to-end `N=7, T=1560, p=52, K=1` comparison against the frozen
+reference passed the `1e-6` contract with a worst absolute difference of only
+`9.27e-15` (in `yfill`). That validation run is recorded in
+`p52_equivalence_matlab.csv`.
 
 ## RNG compatibility
 

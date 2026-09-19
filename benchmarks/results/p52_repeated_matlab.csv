@@ -1,3 +1,3 @@
-implementation,run1_seconds,run2_seconds,run3_seconds,median_seconds
-reference,34.2507737,44.0370608,38.5193477,38.5193477
-FastBVAR,2.79322375,1.62129125,1.40093158,1.62129125
+implementation,run1_seconds,run2_seconds,run3_seconds,run4_seconds,run5_seconds,median_seconds
+reference,34.2507737,44.0370608,38.5193477,NaN,NaN,38.5193477
+FastBVAR,1.4451,1.3248,1.2988,1.3363,1.3041,1.324789792
