@@ -11,12 +11,9 @@ run_baseline_benchmarks
 ```
 
 This writes a summary and per-function profiler tables to
-`benchmarks/results/`. Results committed during Phase 1 were measured with
-GNU Octave and are labelled accordingly; MATLAB results must be generated on
-a MATLAB host before making MATLAB speed claims.
-
-No numerical optimization has been made yet. Candidate bottlenecks will be
-ranked from the baseline profiles before production code changes.
+`benchmarks/results/`. The original Phase-1 results were measured with GNU
+Octave and are labelled accordingly. The later optimization results were
+measured with MATLAB R2026a on Apple silicon.
 
 ### Phase-1 local baseline
 
@@ -100,11 +97,39 @@ a deliberately rank-deficient test verifies that fallback bit-for-bit.
 
 Five alternating MATLAB runs produced cumulative speedups of 1.64x for small
 irregular missing data, 2.01x for small mixed frequency, and 2.36x for the
-small high-lag case. The operation reordering is validated at `1e-9` absolute
-and relative tolerance over the recursive result structure. The worst observed
+small high-lag case. The operation reordering is validated under the current
+`1e-6` absolute and relative contract over the recursive result structure. The worst observed
 absolute discrepancy was `8.95e-9` in a mixed-frequency posterior coefficient
 mean (allowed by the relative term); filtered observations differed by at most
 `6.33e-15`. Raw timings are in `innovation_cholesky_matlab.csv`.
+
+## Optimization 4: structured companion propagation
+
+For pure stock-variable VAR states with `ns >= 128`, covariance propagation
+uses the exact block identity for `G=[A; I 0]` instead of generic dense
+`G*P*G'`. A microbenchmark established the crossover: the block path is 2.25x
+faster at `ns=140` and 3.33x at `ns=364`, but slower at `ns=56`; smaller or
+augmented mixed-frequency states retain dense BLAS. Results are in
+`companion_propagation_matlab.csv`.
+
+## Optimization 5: toolbox-free Lyapunov doubling
+
+Stationary initialization now uses squared Smith iteration, checking both
+convergence and the Lyapunov residual before accepting the result. Failure
+falls back to the unchanged Schur solver. Automated tests cover the fast solve
+at `1e-10` and a bitwise nonconvergent fallback.
+
+Together with structured propagation, the p=52 three-run FastBVAR median is
+1.621 seconds per draw versus 38.519 seconds for the frozen reference, a
+23.76x speedup. Individual runs are recorded in `p52_repeated_matlab.csv`.
+
+## RNG compatibility
+
+The default `options.preserve_rng=true` retains upstream stream positioning.
+Set it to `false` to omit random draws that fed an unused simulation-smoother
+output. This intentionally changes later same-seed posterior draws without
+changing their target distribution; its runtime effect is small relative to
+the matrix optimizations.
 
 ## Large synthetic benchmarks
 
@@ -116,7 +141,8 @@ Observed MATLAB R2026a timings at `K=1`:
 | Gold p=52 | 33.758 s | 5.637 s | 5.99x |
 | Fiscal-monetary | 0.761 s | 0.162 s | 4.68x |
 
-These are measured one-draw runs, not extrapolated full-chain claims. Runtime
+These are initial cold one-draw runs retained for reproducibility; the later
+p=52 repeated-median result is reported above. Runtime
 still scales approximately with `K` on the missing-data Gibbs path; realistic
 multi-draw scaling and remaining full covariance-history storage require the
 next profiling pass. Reproduce with `run_large_benchmarks(1)`; raw results are

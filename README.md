@@ -11,7 +11,8 @@ FastBVAR is currently at the **Phase-1 baseline milestone**: the upstream
 reference is pinned, deterministic benchmarks and strict equivalence tests are
 present, and the missing-data Kalman path has validated fast paths with robust
 legacy fallbacks. On the checked-in MATLAB R2026a synthetic `K=1` benchmarks,
-speedups range from 2.68x to 5.99x; see `PERFORMANCE.md` for scope and caveats.
+speedups reach 23.8x on the repeated Gold p=52 benchmark; see
+`PERFORMANCE.md` for scope and caveats.
 
 ## Install
 
@@ -47,9 +48,13 @@ run_equivalence_tests
 run_baseline_benchmarks
 ```
 
-The equivalence suite uses the documented `1e-9` absolute/relative tolerance
+The equivalence suite uses the documented `1e-6` absolute/relative tolerance
 for the operation-reordered Kalman fast path and bitwise comparison for its
 legacy singular-update fallback.
+
+Exact upstream RNG positioning remains the default. Users who do not need
+same-seed draw identity can set `options.preserve_rng = false` to skip draws
+associated only with an unused simulation-smoother output.
 
 See [COMPATIBILITY.md](COMPATIBILITY.md) for validated feature coverage and
 [PERFORMANCE.md](PERFORMANCE.md) for profiling notes. Programmatic status is

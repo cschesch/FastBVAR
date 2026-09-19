@@ -641,6 +641,10 @@ if mixed_freq_on == 1
     % simulation-smoother output. kfilternan still advances the RNG exactly
     % as upstream when this output is disabled.
     KFoptions.return_simulation = 0;
+    KFoptions.preserve_rng = 1;
+    if nargin > 2 && isfield(options,'preserve_rng')
+        KFoptions.preserve_rng = options.preserve_rng;
+    end
 end
 
 
@@ -1369,6 +1373,9 @@ if mixed_freq_on
     end
     if isfield(KFoptions,'return_simulation')
         KFoptions = rmfield(KFoptions,'return_simulation');
+    end
+    if isfield(KFoptions,'preserve_rng')
+        KFoptions = rmfield(KFoptions,'preserve_rng');
     end
     BVAR.KFoptions        =  KFoptions;
 end

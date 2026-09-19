@@ -3,6 +3,7 @@ K,validated_legacy,false,small complete irregular and mixed tests
 hor,validated_legacy,false,exercised by all Phase-1 tests
 fhor,validated_legacy,false,exercised by all Phase-1 tests
 noprint,validated_legacy,false,exercised by all Phase-1 tests
+preserve_rng,validated_fast,true,default true preserves upstream stream; false skips unused draws
 mf_varindex,validated_legacy,false,small mixed-frequency flow test
 mixed_freq_index,validated_legacy,false,small irregular stock test uses default zero index
 ElasticNet,not_yet_validated,false,upstream path retained

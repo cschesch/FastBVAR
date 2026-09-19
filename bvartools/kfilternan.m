@@ -37,6 +37,7 @@ state_space_model = 1; % default VAR state space model
 only_logL       = 0;
 start           = 1;
 return_simulation = 1;
+preserve_rng      = 1;
 
 if nargin > 3
     if isfield(options,'tauVec') == 1
@@ -70,6 +71,9 @@ if nargin > 3
     end
     if isfield(options,'return_simulation')==1
         return_simulation = options.return_simulation;
+    end
+    if isfield(options,'preserve_rng')==1
+        preserve_rng = options.preserve_rng;
     end
 end
 
@@ -118,9 +122,16 @@ Zdim       = zeros(T,1);
 mat_obspos = zeros(T,var);
 
 % 1.2 Initialization
+% Pure stock-variable VARs retain the canonical [A; I 0] companion form.
+% Flow aggregation augments/transforms the state and uses the dense fallback.
+if state_space_model == 1 && all(index == 0) && size(A,1) >= 128
+    companion_n = var;
+else
+    companion_n = [];
+end
 if initialCond==0
     stt(:,1) = zeros(ns,1);
-    P0 = lyapunov_symm(A(:,:,tauVec(1)),...
+    P0 = lyapunov_fast(A(:,:,tauVec(1)),...
         B(:,:,tauVec(1))*(Sigma(:,:,tauVec(1))')...
         *Sigma(:,:,tauVec(1))*(B(:,:,tauVec(1))'));
     ptt(:,:,1)=P0;
@@ -170,7 +181,7 @@ for ii=1:T
     [stt(:,ii+1),ptt(:,:,ii+1),logLnc(ii),vt(dimt,ii),finvt(dimt,dimt,ii),...
         kpartg(:,dimt,ii),] = kf_dk(ytt,Ztt,...
         state,ptt(:,:,ii),A(:,:,tauVec(ii)),...
-        B(:,:,tauVec(ii))*(Sigma(:,:,tauVec(ii))'));
+        B(:,:,tauVec(ii))*(Sigma(:,:,tauVec(ii))'),companion_n);
 
     
     % if there is break
@@ -336,8 +347,10 @@ outputkf.r2 = 1 - diag(tmpf * tmpf') ./ diag(Ydem*Ydem');
 % by drawing and discarding the same var-by-1 normals at every date, while
 % avoiding T redundant SVDs and the unused simulated-state recursion.
 if ~return_simulation
-    for tt = 1:T
-        randn(var,1);
+    if preserve_rng
+        for tt = 1:T
+            randn(var,1);
+        end
     end
     return;
 end

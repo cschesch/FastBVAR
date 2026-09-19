@@ -1,4 +1,4 @@
-function   [shatnew,signew,lh,yhat,fin,kgpart,yforc]=kf_dk(y,H,shat,sig,G,M)
+function   [shatnew,signew,lh,yhat,fin,kgpart,yforc]=kf_dk(y,H,shat,sig,G,M,companion_n)
 
 % =========================================================================
 % KF_DK  
@@ -22,7 +22,26 @@ function   [shatnew,signew,lh,yhat,fin,kgpart,yforc]=kf_dk(y,H,shat,sig,G,M)
 % Revised, 3/21/2018
 
 lh=zeros(1,2);
-omega=G*sig*G'+M*M';
+if nargin >= 7 && ~isempty(companion_n)
+    % Exact block propagation for a pure VAR companion matrix:
+    % G=[A; I 0], M=[M1; 0]. This avoids a dense ns-by-ns product and
+    % reduces propagation from O(ns^3) to O(N*ns^2).
+    ns = size(G,1);
+    nshift = ns-companion_n;
+    AP = G(1:companion_n,:)*sig;
+    omega = zeros(ns,ns);
+    omega(1:companion_n,1:companion_n) = ...
+        AP*G(1:companion_n,:)' + ...
+        M(1:companion_n,:)*M(1:companion_n,:)';
+    if nshift > 0
+        omega(1:companion_n,companion_n+1:end) = AP(:,1:nshift);
+        omega(companion_n+1:end,1:companion_n) = AP(:,1:nshift)';
+        omega(companion_n+1:end,companion_n+1:end) = ...
+            sig(1:nshift,1:nshift);
+    end
+else
+    omega=G*sig*G'+M*M';
+end
 spred = G*shat; 
 yforc = H*spred; 
 yhat=y-yforc; 
