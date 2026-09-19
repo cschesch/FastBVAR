@@ -36,6 +36,7 @@ noprint         = 0;
 state_space_model = 1; % default VAR state space model
 only_logL       = 0;
 start           = 1;
+return_simulation = 1;
 
 if nargin > 3
     if isfield(options,'tauVec') == 1
@@ -66,6 +67,9 @@ if nargin > 3
     end
     if isfield(options,'start')==1 % likelood computed from start until end, default start =1
          start = options.start;
+    end
+    if isfield(options,'return_simulation')==1
+        return_simulation = options.return_simulation;
     end
 end
 
@@ -326,6 +330,17 @@ Ydem(find(isnan(Ydem))) = 0;
 tmpf = outputkf.yferr';
 tmpf(find(isnan(tmpf))) = 0;
 outputkf.r2 = 1 - diag(tmpf * tmpf') ./ diag(Ydem*Ydem');
+
+% bvar_ consumes the filtered/smoothed conditional means, not the optional
+% simulation-smoother path below. Preserve the upstream RNG stream exactly
+% by drawing and discarding the same var-by-1 normals at every date, while
+% avoiding T redundant SVDs and the unused simulated-state recursion.
+if ~return_simulation
+    for tt = 1:T
+        randn(var,1);
+    end
+    return;
+end
 %==========================================================================
 % % 7. Simulating the state vector
 if state_space_model ==2

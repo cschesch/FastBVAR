@@ -68,3 +68,23 @@ the small high-lag case and approximately 1.65 GB for the target
 `N=7, p=52, T=1560` case. Seven alternating MATLAB timing repetitions showed
 0.97x in both small cases, which is within run-to-run noise; no runtime speedup
 is claimed for this change. Results are in `dead_nmat_matlab.csv`.
+
+## Optimization 2: skip unused simulation-smoother output
+
+The `bvar_` missing-data path consumes filtered and smoothed conditional means
+from `kfilternan`, but not its optional simulated-state output. FastBVAR skips
+that output only for this internal call. Direct callers of `kfilternan` retain
+the upstream default. To preserve later posterior draws bit-for-bit, the fast
+path still generates and discards the same `N` normal variates at every date.
+
+Five alternating MATLAB runs with longer chains produced:
+
+| Case | K | Reference | FastBVAR | Speedup |
+| --- | ---: | ---: | ---: | ---: |
+| Small irregular | 10 | 0.511 s | 0.435 s | 1.17x |
+| Small mixed frequency | 10 | 0.474 s | 0.408 s | 1.16x |
+| Small high lag | 5 | 0.714 s | 0.679 s | 1.05x |
+
+All public output fields, values, classes, dimensions, and RNG-dependent draws
+remain bitwise identical in the small equivalence suite. Raw results are in
+`skip_unused_simulation_matlab.csv`.

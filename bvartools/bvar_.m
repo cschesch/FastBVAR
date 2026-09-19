@@ -637,6 +637,10 @@ end
 if mixed_freq_on == 1
     KFoptions.index   = index;
     KFoptions.noprint = noprint;
+    % The estimator uses conditional means from kfilternan, not its optional
+    % simulation-smoother output. kfilternan still advances the RNG exactly
+    % as upstream when this output is disabled.
+    KFoptions.return_simulation = 0;
 end
 
 
@@ -1362,6 +1366,9 @@ if mixed_freq_on
     BVAR.logL  = logL;
     if isfield(options,'mf_varindex')== 1
         KFoptions.mf_varindex = options.mf_varindex;
+    end
+    if isfield(KFoptions,'return_simulation')
+        KFoptions = rmfield(KFoptions,'return_simulation');
     end
     BVAR.KFoptions        =  KFoptions;
 end
