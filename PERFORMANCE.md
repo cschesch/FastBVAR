@@ -88,3 +88,20 @@ Five alternating MATLAB runs with longer chains produced:
 All public output fields, values, classes, dimensions, and RNG-dependent draws
 remain bitwise identical in the small equivalence suite. Raw results are in
 `skip_unused_simulation_matlab.csv`.
+
+## Optimization 3: observation-dimensional Kalman factorization
+
+For full-rank updates, `kf_dk` now factors the innovation covariance
+`F=H*P*H'`, whose dimension is the number of observed variables, instead of
+performing two SVD-based square-root operations involving the full `N*p`
+state. Cholesky is used only when successful and well conditioned. Singular or
+near-singular updates automatically execute the unchanged upstream SVD code;
+a deliberately rank-deficient test verifies that fallback bit-for-bit.
+
+Five alternating MATLAB runs produced cumulative speedups of 1.64x for small
+irregular missing data, 2.01x for small mixed frequency, and 2.36x for the
+small high-lag case. The operation reordering is validated at `1e-9` absolute
+and relative tolerance over the recursive result structure. The worst observed
+absolute discrepancy was `8.95e-9` in a mixed-frequency posterior coefficient
+mean (allowed by the relative term); filtered observations differed by at most
+`6.33e-15`. Raw timings are in `innovation_cholesky_matlab.csv`.

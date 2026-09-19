@@ -46,6 +46,10 @@ run_equivalence_tests
 run_baseline_benchmarks
 ```
 
+The equivalence suite uses the documented `1e-9` absolute/relative tolerance
+for the operation-reordered Kalman fast path and bitwise comparison for its
+legacy singular-update fallback.
+
 See [COMPATIBILITY.md](COMPATIBILITY.md) for validated feature coverage and
 [PERFORMANCE.md](PERFORMANCE.md) for profiling notes. Programmatic status is
 returned by `fastbvar_capabilities`.

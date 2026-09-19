@@ -23,25 +23,45 @@ function   [shatnew,signew,lh,yhat,fin,kgpart,yforc]=kf_dk(y,H,shat,sig,G,M)
 
 lh=zeros(1,2);
 omega=G*sig*G'+M*M';
-[uo doo vo]=svd(omega);
-[u d v]=svd(H*uo*sqrt(doo));
-first0=min(find(diag(d)<1e-12));
-if isempty(first0),first0=min(size(H))+1;end
-u=u(:,1:first0-1);
-v=v(:,1:first0-1);
-d=diag(d);d=diag(d(1:first0-1));
 spred = G*shat; 
-fac=vo*sqrt(doo);
 yforc = H*spred; 
 yhat=y-yforc; 
-fhalf=(v/d)*u'; 
-fin=fhalf'*fhalf; 
-ferr=fhalf*yhat;
-lh(1)=-.5*ferr'*ferr;
-lh(2)=-sum(log(diag(d)));
-kgpart=fac*fhalf; 
-% Check 
-%comparemat(kgpart,omega*H'*(inv(H*omega*H')) ); 
-shatnew=fac*ferr+spred;
-signew=fac*(eye(size(v,1))-v*v')*fac';
-lh=sum(lh); 
+
+% Fast full-rank path. The innovation covariance is at most the number of
+% observed variables, whereas OMEGA has the full N*p companion dimension.
+% Algebraically this is the same update as the square-root SVD formulation
+% below. Retain that formulation as a robust fallback near rank deficiency.
+F = H*omega*H';
+F = (F+F')/2;
+[R,chol_status] = chol(F);
+if chol_status == 0 && rcond(R) > 1e-10
+    omegaHt = omega*H';
+    innovation_factor = omegaHt/R;
+    kgain = innovation_factor/R';
+    fin = R \ (R' \ eye(size(F)));
+    ferr = R' \ yhat;
+    lh(1) = -.5*(ferr'*ferr);
+    lh(2) = -sum(log(diag(R)));
+    shatnew = spred + kgain*yhat;
+    signew = omega - innovation_factor*innovation_factor';
+    signew = (signew+signew')/2;
+    kgpart = kgain;
+else
+    [uo,doo,vo]=svd(omega);
+    [u,d,v]=svd(H*uo*sqrt(doo));
+    first0=min(find(diag(d)<1e-12));
+    if isempty(first0),first0=min(size(H))+1;end
+    u=u(:,1:first0-1);
+    v=v(:,1:first0-1);
+    d=diag(d);d=diag(d(1:first0-1));
+    fac=vo*sqrt(doo);
+    fhalf=(v/d)*u';
+    fin=fhalf'*fhalf;
+    ferr=fhalf*yhat;
+    lh(1)=-.5*ferr'*ferr;
+    lh(2)=-sum(log(diag(d)));
+    kgpart=fac*fhalf;
+    shatnew=fac*ferr+spred;
+    signew=fac*(eye(size(v,1))-v*v')*fac';
+end
+lh=sum(lh);
