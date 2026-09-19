@@ -407,8 +407,19 @@ end
 %--------------------------------------------------------------------------
 
 %--------------------------------------------------------------------------
-% compute the posterior (the varols agin on actual+dummy)
-[posterior,var] = posterior_(y);
+% With the flat prior and a single VAR, posterior_ would run the identical
+% rfvar3 regression a second time. Reuse the OLS object already computed
+% above; all posterior fields are the same expressions used by posterior_.
+if dummy == 0 && nunits == 1 && exogenous_block == 0
+    var = varols;
+    Tu = size(var.u,1);
+    posterior.df = Tu - ny*lags - nx + flat*(ny+1) - nexogenous;
+    posterior.S = var.u'*var.u;
+    posterior.XXi = var.xxi;
+    posterior.PhiHat = var.B;
+else
+    [posterior,var] = posterior_(y);
+end
 
 if exogenous_block == 1
     exogenous_block = 0;
@@ -638,6 +649,9 @@ if mixed_freq_on == 1
     % simulation-smoother output. Fast mode skips its otherwise useless RNG
     % draws; verification mode restores upstream stream positioning.
     KFoptions.return_simulation = 0;
+    % The BVAR estimator only consumes conditional means. Allow the
+    % high-lag companion filter to keep covariance blocks in compact form.
+    KFoptions.return_covariance = 0;
     KFoptions.preserve_rng = verify_mode;
 end
 
@@ -1370,6 +1384,9 @@ if mixed_freq_on
     end
     if isfield(KFoptions,'preserve_rng')
         KFoptions = rmfield(KFoptions,'preserve_rng');
+    end
+    if isfield(KFoptions,'return_covariance')
+        KFoptions = rmfield(KFoptions,'return_covariance');
     end
     BVAR.KFoptions        =  KFoptions;
 end

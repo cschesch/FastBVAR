@@ -37,6 +37,7 @@ state_space_model = 1; % default VAR state space model
 only_logL       = 0;
 start           = 1;
 return_simulation = 1;
+return_covariance = 1;
 preserve_rng      = 0;
 
 if nargin > 3
@@ -71,6 +72,9 @@ if nargin > 3
     end
     if isfield(options,'return_simulation')==1
         return_simulation = options.return_simulation;
+    end
+    if isfield(options,'return_covariance')==1
+        return_covariance = options.return_covariance;
     end
     if isfield(options,'preserve_rng')==1
         preserve_rng = options.preserve_rng;
@@ -116,7 +120,6 @@ yfor    = zeros(size(C,1),T);
 % extra initial slice and then copied the full covariance history to remove
 % it; that copy is enormous for high-lag companion states.
 stt        = zeros(ns,T);
-ptt        = zeros(ns,ns,T);
 W          = eye(var);
 Zdim       = zeros(T,1);
 mat_obspos = zeros(T,var);
@@ -128,6 +131,26 @@ if state_space_model == 1 && all(index == 0) && size(A,1) >= 128
     companion_n = var;
 else
     companion_n = [];
+end
+constant_system = all(tauVec == tauVec(1));
+if constant_system
+    regime = tauVec(1);
+    Aconstant = A(:,:,regime);
+    Bconstant = B(:,:,regime);
+    Cconstant = C(:,:,regime);
+    constconstant = const(:,regime);
+    Sigmaconstant = Sigma(:,:,regime);
+    Mconstant = Bconstant*Sigmaconstant';
+    Qconstant = Sigmaconstant'*Sigmaconstant;
+end
+compact_covariance = ~isempty(companion_n) && constant_system ...
+    && ~return_covariance;
+if compact_covariance
+    ptt = [];
+    covariance_support = cell(T,1);
+    covariance_blocks = cell(T,1);
+else
+    ptt = zeros(ns,ns,T);
 end
 if initialCond==0
     initial_state = zeros(ns,1);
@@ -146,6 +169,9 @@ nbreak = 0;
 time   = 0;
 state = initial_state;
 state_covariance = P0;
+if compact_covariance
+    state_support = (1:ns)';
+end
 
 %==========================================================================
 % 1.3 Start Forward Filter using KF_DK
@@ -159,22 +185,32 @@ for ii=1:T
     rowt        = find(~isnan(ytt));
     ytt         = ytt(ind);
     Zdim(ii)    = length(ytt);
-    Ztt         = W((ind==1),:)*C(:,:,tauVec(ii));
+    if constant_system
+        At = Aconstant;
+        Ct = Cconstant;
+        constt = constconstant;
+        Mt = Mconstant;
+    else
+        At = A(:,:,tauVec(ii));
+        Ct = C(:,:,tauVec(ii));
+        constt = const(:,tauVec(ii));
+        Mt = B(:,:,tauVec(ii))*Sigma(:,:,tauVec(ii))';
+    end
+    Ztt         = W((ind==1),:)*Ct;
     mat_obspos(ii,1:Zdim(ii)) = rowt;
     dimt        =( 1:Zdim(ii) );
     % Demeaning is done here
-    ytt = ytt - Ztt*const(:,tauVec(ii));
+    ytt = ytt - Ztt*constt;
     
     % Forecast Part. Compute s(t|t-1) once and share it with KF_DK. For a
     % pure companion state, lower rows are lag shifts and need no multiply.
-    At = A(:,:,tauVec(ii));
     if ~isempty(companion_n)
         state_prediction = [At(1:companion_n,:)*state; ...
                             state(1:end-companion_n)];
     else
         state_prediction = At*state;
     end
-    yfor(:,ii) = C(:,:,tauVec(ii))*(state_prediction + const(:,tauVec(ii)));
+    yfor(:,ii) = Ct*(state_prediction + constt);
     
     %     % computing the 1, 2,3,4 step ahead forecast
     %     yfrsct(ii,dimt,1) = yfor(dimt,ii);
@@ -182,11 +218,23 @@ for ii=1:T
     %     yfrsct(ii,dimt,3) = Ztt*(G(:,:,tauVec(ii))^3*stt(:,ii) + C(:,tauVec(ii)));
     %     yfrsct(ii,dimt,4) = Ztt*(G(:,:,tauVec(ii))^4*stt(:,ii) + C(:,tauVec(ii)));
     
-    [stt(:,ii),ptt(:,:,ii),logLnc(ii),vt(dimt,ii),finvt(dimt,dimt,ii),...
-        kpartg(:,dimt,ii),] = kf_dk(ytt,Ztt,...
-        state,state_covariance,At,...
-        B(:,:,tauVec(ii))*(Sigma(:,:,tauVec(ii))'),companion_n,...
-        state_prediction);
+    if compact_covariance
+        [filtered_state,filtered_covariance,filtered_support, ...
+            logLnc(ii),vt(dimt,ii),finvt(dimt,dimt,ii), ...
+            kpartg(:,dimt,ii)] = compact_step(ytt,Ztt,rowt,state, ...
+            state_covariance,state_support,At,Mt,state_prediction);
+        covariance_support{ii} = filtered_support;
+        covariance_blocks{ii} = filtered_covariance;
+    else
+        [filtered_state,filtered_covariance,logLnc(ii),vt(dimt,ii), ...
+            finvt(dimt,dimt,ii),kpartg(:,dimt,ii),] = kf_dk(ytt,Ztt,...
+            state,state_covariance,At,...
+            Mt,companion_n,state_prediction);
+    end
+    stt(:,ii) = filtered_state;
+    if ~compact_covariance
+        ptt(:,:,ii) = filtered_covariance;
+    end
 
     
     % if there is break
@@ -194,11 +242,14 @@ for ii=1:T
         if tauVec(ii+1) - tauVec(ii) > 0
             nbreak              = nbreak +1;
             time(nbreak)        = ii+1;
-            state = stt(:,ii) + adjustment(:,nbreak);
+            state = filtered_state + adjustment(:,nbreak);
         else
-            state = stt(:,ii);
+            state = filtered_state;
         end
-        state_covariance = ptt(:,:,ii);
+        state_covariance = filtered_covariance;
+        if compact_covariance
+            state_support = filtered_support;
+        end
     end
     
 end
@@ -245,7 +296,14 @@ rstar       = zeros(ns,1);
     smoothdis(rstar,...
     (Sigma(:,:,tauVec(end))')*Sigma(:,:,tauVec(end)),B(:,:,tauVec(end))',...
     Ztt', finvt(dimt,dimt,end),zeros(ns),vt(dimt,end));
-smooth_st(:,end)        = stt(:,end)+ptt(:,:,end)*rstar;
+if compact_covariance
+    support = covariance_support{end};
+    smooth_st(:,end) = stt(:,end);
+    smooth_st(support,end) = smooth_st(support,end) ...
+        + covariance_blocks{end}*rstar(support);
+else
+    smooth_st(:,end) = stt(:,end)+ptt(:,:,end)*rstar;
+end
 if return_simulation
     rmat(:,end) = rstar;
 end
@@ -256,12 +314,22 @@ for ii=(T-1):-1:1
     % Varying dimension in the backward recurions
     dimt=( 1:Zdim(ii) );
     % [Ztt]'= [Wtt*Z]' = = Z'*Wtt'
-    Ztt = (C(:,:,tauVec(ii))')*( W( mat_obspos(ii,1:Zdim(ii)),:)');
+    if constant_system
+        Ct = Cconstant;
+        Atnext = Aconstant;
+        Bt = Bconstant;
+        shock_covariance = Qconstant;
+    else
+        Ct = C(:,:,tauVec(ii));
+        Atnext = A(:,:,tauVec(ii+1));
+        Bt = B(:,:,tauVec(ii));
+        shock_covariance = (Sigma(:,:,tauVec(ii))')*Sigma(:,:,tauVec(ii));
+    end
+    Ztt = Ct'*( W( mat_obspos(ii,1:Zdim(ii)),:)');
     
     % Algebraically apply L'*r without materializing the dense
     % L=A-A*K*Z' matrix. For companion states, A'*r itself is only a top
     % block multiply plus a lag shift.
-    Atnext = A(:,:,tauVec(ii+1));
     if ~isempty(companion_n)
         state_adjoint = Atnext(1:companion_n,:)' ...
             * rstar(1:companion_n);
@@ -276,10 +344,16 @@ for ii=(T-1):-1:1
     smoother_score = finvt(dimt,dimt,ii)*vt(dimt,ii) ...
         - kpartg(:,dimt,ii)'*state_adjoint;
     rstar = state_adjoint + Ztt*smoother_score;
-    shock_covariance = (Sigma(:,:,tauVec(ii))')*Sigma(:,:,tauVec(ii));
-    etamat(:,ii) = shock_covariance*B(:,:,tauVec(ii))'*rstar;
+    etamat(:,ii) = shock_covariance*Bt'*rstar;
     
-    smooth_st(:,ii)=stt(:,ii)+ptt(:,:,ii)*rstar;
+    if compact_covariance
+        support = covariance_support{ii};
+        smooth_st(:,ii) = stt(:,ii);
+        smooth_st(support,ii) = smooth_st(support,ii) ...
+            + covariance_blocks{ii}*rstar(support);
+    else
+        smooth_st(:,ii)=stt(:,ii)+ptt(:,:,ii)*rstar;
+    end
     
     if return_simulation
         rmat(:,ii) = rstar;
@@ -415,6 +489,64 @@ if time>0
 else
     outputkf.smoothSt_sim_plus_ss = smooth_sim + repmat(const(:,end)',size(smooth_sim,1),1);
 end
+
+
+%% Compact covariance recursion for large pure companion systems
+    function [shatnew,Pnew,Snew,lh,yhat,fin,kgpart] = ...
+            compact_step(yobs,H,observed_rows,shat,P,S,G,M,spred)
+        % After conditioning on exact observations, covariance is supported
+        % only on missing current states and still-uncertain lagged states.
+        % Carry that support explicitly instead of materializing ns-by-ns
+        % matrices at every date.
+        nshift = ns-companion_n;
+        shift_positions = find(S <= nshift);
+        active_top = G(1:companion_n,S);
+        AP = active_top*P;
+        top_covariance = AP*active_top' ...
+            + M(1:companion_n,:)*M(1:companion_n,:)';
+        top_covariance = (top_covariance+top_covariance')/2;
+        cross_covariance = AP(:,shift_positions);
+        shifted_covariance = P(shift_positions,shift_positions);
+        predicted_support = [(1:companion_n)'; S(shift_positions)+companion_n];
+        Ppred = [top_covariance,cross_covariance; ...
+                 cross_covariance',shifted_covariance];
+
+        yhat = yobs-H*spred;
+        F = Ppred(observed_rows,observed_rows);
+        F = (F+F')/2;
+        [R,chol_status] = chol(F);
+        if chol_status ~= 0 || rcond(R) <= 1e-10
+            % Rare rank-deficient fallback: recover the full prior only for
+            % this date and reuse the established SVD implementation.
+            full_prior = zeros(ns);
+            full_prior(S,S) = P;
+            [shatnew,full_new,lh,yhat,fin,kgpart] = kf_dk( ...
+                yobs,H,shat,full_prior,G,M,companion_n,spred);
+            retained = true(numel(predicted_support),1);
+            retained(observed_rows) = false;
+            Snew = predicted_support(retained);
+            Pnew = full_new(Snew,Snew);
+            return;
+        end
+
+        omegaHt = Ppred(:,observed_rows);
+        innovation_factor = omegaHt/R;
+        compact_gain = innovation_factor/R';
+        fin = R \ (R' \ eye(size(F)));
+        ferr = R' \ yhat;
+        lh = -.5*(ferr'*ferr)-sum(log(diag(R)));
+        shatnew = spred;
+        shatnew(predicted_support) = shatnew(predicted_support) ...
+            + compact_gain*yhat;
+        kgpart = zeros(ns,numel(observed_rows));
+        kgpart(predicted_support,:) = compact_gain;
+
+        Pupdated = Ppred-innovation_factor*innovation_factor';
+        retained = true(numel(predicted_support),1);
+        retained(observed_rows) = false;
+        Snew = predicted_support(retained);
+        Pnew = Pupdated(retained,retained);
+    end
 
 
 %% Subroutine kfilterRegSplitSimulation allows to simulate the model

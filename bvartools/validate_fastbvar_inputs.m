@@ -1,9 +1,9 @@
 function verify_mode = validate_fastbvar_inputs(y,lags,options)
-%VALIDATE_FASTBVAR_INPUTS Refuse every unverified FastBVAR configuration.
+%VALIDATE_FASTBVAR_INPUTS Validate inputs and warn on unverified combinations.
 
-if ~isnumeric(y) || ~isreal(y) || ndims(y) ~= 2 || isempty(y)
+if ~isnumeric(y) || ~isreal(y) || ndims(y) > 3 || isempty(y)
     error('FastBVAR:InvalidData', ...
-        'y must be a nonempty real numeric T-by-N matrix.');
+        'y must be a nonempty real numeric T-by-N or T-by-N-by-unit array.');
 end
 if any(isinf(y),'all')
     error('FastBVAR:InvalidData','y cannot contain Inf values.');
@@ -16,7 +16,8 @@ if ~isstruct(options) || ~isscalar(options)
     error('FastBVAR:InvalidOptions', 'options must be a scalar struct.');
 end
 
-allowed = {'K','hor','fhor','noprint','mf_varindex','verify_mode'};
+registry = fastbvar_validation_registry();
+allowed = registry.known_fields;
 names = fieldnames(options);
 unsupported = setdiff(names,allowed);
 if ~isempty(unsupported)
@@ -66,15 +67,24 @@ if isfield(options,'mf_varindex')
     end
 end
 if has_missing
-    if any(all(isnan(y),2))
+    if any(all(isnan(y),2),'all')
         error('FastBVAR:InvalidData', ...
             'Fully missing observation rows have not been verified.');
     end
     finite_per_column = sum(isfinite(y),1);
-    if any(finite_per_column < 2)
+    if any(finite_per_column < 2,'all')
         error('FastBVAR:InvalidData', ...
             'Every series with missing observations needs at least two finite values.');
     end
+end
+
+status = fastbvar_validation_status(options);
+if ~status.validated
+    warning('FastBVAR:UnvalidatedCombination', [ ...
+        'Option combination {%s} has not been validated against frozen BVAR. ' ...
+        'FastBVAR will run it without an equivalence guarantee. Validate a ' ...
+        'small version with validate_option_combination(y_small,lags,options).'], ...
+        status.signature);
 end
 
 verify_mode = false;

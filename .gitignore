@@ -2,4 +2,5 @@
 *.asv
 benchmarks/results/*.mat
 benchmarks/results/*.json
-
+/H.dat
+/g1.mat

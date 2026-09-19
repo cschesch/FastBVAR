@@ -5,7 +5,7 @@ root = fileparts(mfilename('fullpath'));
 reference = fullfile(root,'reference','BVAR_');
 assert(isfile(fullfile(reference,'bvartools','bvar_.m')), ...
     'Run: git submodule update --init --recursive');
-addpath(root);
+addpath(root,fullfile(root,'bvartools'));
 
 names = {'complete','irregular','mixed','companion','gold_p52'};
 results = repmat(struct('case_name','','reference_seconds',0, ...
@@ -36,15 +36,27 @@ end
 verify_singular_fallback(root,reference);
 verify_lyapunov(root);
 
-bad = struct('K',1,'priors',struct('name','Minnesota'));
+bad = struct('K',1,'not_a_bvar_option',true);
 try
     run_isolated_bvar(root,ones(40,2),2,bad,true);
-    error('FastBVAR:GuardFailure','Unverified option was accepted.');
+    error('FastBVAR:GuardFailure','Unknown option was accepted.');
 catch exception
     assert(strcmp(exception.identifier,'FastBVAR:UnsupportedOption'), ...
         'Unexpected guard error: %s',exception.message);
 end
-fprintf('PASS option guard (unverified options are refused)\n');
+fprintf('PASS option guard (unknown options are refused)\n');
+
+warning_state = warning('query','FastBVAR:UnvalidatedCombination');
+warning('on','FastBVAR:UnvalidatedCombination');
+lastwarn('');
+combo = struct('K',1,'noprint',true,'timetrend',1, ...
+    'exogenous',sin((1:40)'/7));
+validate_fastbvar_inputs(ones(40,2),2,combo);
+[~,warning_id] = lastwarn;
+warning(warning_state.state,'FastBVAR:UnvalidatedCombination');
+assert(strcmp(warning_id,'FastBVAR:UnvalidatedCombination'), ...
+    'FastBVAR:GuardFailure','Unvalidated combination did not warn.');
+fprintf('PASS validation registry (untested combinations warn)\n');
 end
 
 function verify_singular_fallback(root,reference)
